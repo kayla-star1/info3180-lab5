@@ -6,9 +6,14 @@ This file creates your application.
 """
 
 from app import app
-from flask import render_template, request, jsonify, send_file
+from flask import render_template, request, jsonify, send_file,Flask
 import os
+from werkzeug.utils import secure_filename
+from forms import MovieForm
+from models import db, Movie
 
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'uploads/'
 
 ###
 # Routing for your application.
@@ -18,6 +23,30 @@ import os
 def index():
     return jsonify(message="This is the beginning of our API")
 
+@app.route('/api/v1/movies', methods =['POST'])
+def movies():
+    form = MovieForm()
+    if form.validate_on_submit():
+        title = form.title.data
+        description = form.description.data
+        poster = form.poster.data
+
+        filename = secure_filename(poster.filename)
+        poster.save(app.config['UPLOAD_FOLDER'] + filename)
+
+        movie = Movie(title=title, description=description, poster=filename)
+        db.session.add(movie)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Movie Successfully added",
+            "title": title,
+            "poster": filename,
+            "description": description
+        }), 201
+    else:
+        errors = form_errors(form)
+        return jsonify({"errors": errors}), 400
 
 ###
 # The functions below should be applicable to all Flask apps.
@@ -61,3 +90,6 @@ def add_header(response):
 def page_not_found(error):
     """Custom 404 page."""
     return render_template('404.html'), 404
+
+if __name__ == '__main__':
+    app.run(debug=True)
