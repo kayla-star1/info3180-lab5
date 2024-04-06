@@ -9,8 +9,9 @@ from app import app
 from flask import render_template, request, jsonify, send_file,Flask
 import os
 from werkzeug.utils import secure_filename
-from forms import MovieForm
-from models import db, Movie
+from app.forms import MovieForm
+from app.models import db, Movie
+from flask_wtf.csrf import generate_csrf
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
@@ -28,25 +29,28 @@ def movies():
     form = MovieForm()
     if form.validate_on_submit():
         title = form.title.data
-        description = form.description.data
         poster = form.poster.data
-
-        filename = secure_filename(poster.filename)
-        poster.save(app.config['UPLOAD_FOLDER'] + filename)
-
-        movie = Movie(title=title, description=description, poster=filename)
+        description = form.description.data
+        
+        movie = Movie(title=title, poster=poster, description=description)
         db.session.add(movie)
         db.session.commit()
-
+        
+        poster_path = os.path.join(app.config['UPLOAD_FOLDER'], poster.filename)
+        poster.save(poster_path)
         return jsonify({
             "message": "Movie Successfully added",
             "title": title,
-            "poster": filename,
+            "poster": poster.filename,
             "description": description
-        }), 201
+        })
     else:
         errors = form_errors(form)
-        return jsonify({"errors": errors}), 400
+        return jsonify({"errors": errors})
+    
+@app.route('/api/v1/csrf-token', methods=['GET'])
+def get_csrf():
+    return jsonify({'csrf_token': generate_csrf()})
 
 ###
 # The functions below should be applicable to all Flask apps.
