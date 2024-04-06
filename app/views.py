@@ -12,9 +12,9 @@ from werkzeug.utils import secure_filename
 from app.forms import MovieForm
 from app.models import db, Movie
 from flask_wtf.csrf import generate_csrf
+import json
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads/'
 
 ###
 # Routing for your application.
@@ -28,29 +28,45 @@ def index():
 def movies():
     form = MovieForm()
     if form.validate_on_submit():
-        title = form.title.data
-        poster = form.poster.data
-        description = form.description.data
+        [title,poster, description, token] = form 
+        poster_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(poster.data.filename))
+        poster.data.save(poster_path)
         
-        movie = Movie(title=title, poster=poster, description=description)
+        movie = Movie(title=title.data, poster=secure_filename(poster.data.filename), description=description.data)
+        
         db.session.add(movie)
         db.session.commit()
         
-        poster_path = os.path.join(app.config['UPLOAD_FOLDER'], poster.filename)
-        poster.save(poster_path)
-        return jsonify({
+        data ={
             "message": "Movie Successfully added",
-            "title": title,
-            "poster": poster.filename,
-            "description": description
-        })
+            "title": movie.title,
+            "poster": movie.poster,
+            "description": movie.description
+        }
+        return json.dumps(data)    
     else:
         errors = form_errors(form)
+        data ={"errors": errors}
         return jsonify({"errors": errors})
     
 @app.route('/api/v1/csrf-token', methods=['GET'])
 def get_csrf():
     return jsonify({'csrf_token': generate_csrf()})
+
+def get_poster(filename):
+    return "https://127.0.0.1:8080/" + os.path.join(app.config["STATIC_FOLDER"], secure_filename(filename))
+
+@app.route('/api/v1/movies', methods=['GET'])
+def add_movies():
+    raw_data= db.session.query(Movie).all()
+    data=list(map(lambda x:
+        {
+            "id": x.id,
+            "title": x.title,
+            "description": x.description,
+            "poster": get_poster(x.poster)
+        }, raw_data))
+    return jsonify(data)
 
 ###
 # The functions below should be applicable to all Flask apps.
