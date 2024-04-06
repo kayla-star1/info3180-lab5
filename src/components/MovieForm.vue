@@ -1,67 +1,78 @@
 <template>
   <div>
-    <h1>Upload Movie</h1>
-    <form @submit.prevent="saveMovie" id="movieForm">
+    <form id="movieForm" @submit.prevent="saveMovie">
+      <div v-if="success || errors.length > 0">
+        <ul v-if="success">
+          <li>Successfully added movie</li>
+        </ul>
+        <ul v-else>
+          <li v-for="error in errors[0]">{{ error }}</li>
+        </ul>
+      </div>
       <div class="form-group mb-3">
         <label for="title" class="form-label">Movie Title</label>
-        <input type="text" name="title" class="form-control" v-model="title" />
+        <input type="text" name="title" class="form-control"/>
       </div>
       <div class="form-group mb-3">
         <label for="poster" class="form-label">Movie Poster</label>
-        <input type="file" name="poster" class="form-control" @change="handleFileChange" />
+        <input type="file" name="poster" class="form-control"/>
       </div>
       <div class="form-group mb-3">
         <label for="description" class="form-label">Movie Description</label>
-        <textarea name="description" class="form-control" v-model="description"></textarea>
+        <textarea name="description" class="form-control"></textarea>
       </div>
-        <button @click="saveMovie" class="btn btn-primary">Submit</button>
-      </form>
-    </div>
+      <button type="submit">Submit</button>
+    </form>
+  </div>
 </template>
-  
+
 <script setup>
-  const emit = defineEmits(['submit'])
-  
-  function saveMovie(){
-    emit('submit')
-    let movieForm = document.getElementById('movieForm');
-    let form_data = new FormData(movieForm);
+import { ref, onMounted } from 'vue';
+let csrf_token = ref('');
 
-    fetch("/api/v1/movies", {
-        method: 'POST',
-        body: form_data,
-        headers: {
-        'X-CSRFToken': csrf_token.value
-      }
-})
+let errors = ref([]);
+let success = ref(false);
 
+onMounted(() => {
+  getCsrfToken();
+});
+
+let getCsrfToken = () => {
+  fetch('/api/v1/csrf-token', {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log(data);
+      csrf_token.value = data.csrf_token;
+    });
+};
+
+let saveMovie = () => {
+  let movieForm = document.getElementById('movieForm');
+  let form_data = new FormData(movieForm);
+
+  fetch("/api/v1/movies", {
+    method: 'POST',
+    body: form_data,
+    headers: { 'X-CSRFToken': csrf_token.value }
+  })
     .then(function (response) {
-        return response.json();
+      return response.json();
     })
     .then(function (data) {
-        // display a success message
-        console.log(data);
+      if (data.errors) {
+        errors.value = [data.errors];
+      } else {
+        success.value = true;
+      }
     })
-    .catch(function (error) {
-        console.log(error);
+    .catch((error) => {
+      console.log("FAILED");
     });
-
-    };
-
-  import { ref, onMounted} from "vue";
-
-  onMounted(() => {
-    getCsrfToken();
-    });
-   let csrf_token = ref("");
-   function getCsrfToken() {
-    fetch('/api/v1/csrf-token')
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(data);
-        csrf_token.value = data.csrf_token;
-      })
-}
-
-
-  </script>  
+  errors.value = [];
+  success.value = false;
+};
+</script>
