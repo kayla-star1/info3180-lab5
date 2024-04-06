@@ -6,7 +6,7 @@
           <li>Successfully added movie</li>
         </ul>
         <ul v-else>
-          <li v-for="error in errors[0]">{{ error }}</li>
+          <li v-for="error in errors">{{ error }}</li>
         </ul>
       </div>
       <div class="form-group mb-3">
@@ -28,8 +28,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-let csrf_token = ref('');
 
+let csrf_token = ref('');
 let errors = ref([]);
 let success = ref(false);
 
@@ -37,7 +37,7 @@ onMounted(() => {
   getCsrfToken();
 });
 
-let getCsrfToken = () => {
+const getCsrfToken = () => {
   fetch('/api/v1/csrf-token', {
     headers: {
       'Content-Type': 'application/json',
@@ -49,28 +49,27 @@ let getCsrfToken = () => {
     });
 };
 
-let saveMovie = () => {
-  let movieForm = document.getElementById('movieForm');
-  let form_data = new FormData(movieForm);
+const saveMovie = async () => {
+  const movieForm = document.getElementById('movieForm');
+  const form_data = new FormData(movieForm);
 
-  fetch("/api/v1/movies", {
-    method: 'POST',
-    body: form_data,
-    headers: { 'X-CSRFToken': csrf_token.value }
-  })
-    .then(function (response) {
-      return response.json();
-    })
-    .then(function (data) {
-      if (data.errors) {
-        errors.value = [data.errors];
-      } else {
-        success.value = true;
-      }
-    })
-    .catch((error) => {
-      console.log("FAILED");
-    });
+  try {
+    const response = await fetch("/api/v1/movies", {
+  method: 'POST',
+  body: form_data,
+  headers: { 'X-CSRFToken': csrf_token.value },
+});
+console.log(response);
+const data = await response.json();
+
+    if (data.errors) {
+      errors.value = [data.errors];
+    } else {
+      success.value = true;
+    }
+  } catch (error) {
+    console.error("FAILED", error);
+  }
   errors.value = [];
   success.value = false;
 };
